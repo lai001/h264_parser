@@ -1,7 +1,10 @@
 add_requires("libhv 1.3.1")
 
+set_policy("build.ccache", false)
+
 local _deps = ".xmake/_deps"
 local logRoot = path.join(_deps, "log")
+local libyuvRoot = path.join(_deps, "libyuv")
 local ndk_path = "D:/Android/Sdk/ndk/25.1.8937393"
 
 task("download_deps")
@@ -14,7 +17,9 @@ task("download_deps")
         if os.exists(logRoot) == false then
             git.clone("https://github.com/rxi/log.c.git", {depth = 1, branch = "master", outputdir = logRoot})
         end
-
+        if os.exists(libyuvRoot) == false then
+            git.clone("https://chromium.googlesource.com/libyuv/libyuv", {depth = 1, branch = "stable", outputdir = libyuvRoot})
+        end
     end)
 
     set_menu {
@@ -53,6 +58,9 @@ task("clang_format")
             clangformatFiles("libh264_android_codec")
             clangformatFiles("libutil")
             clangformatFiles("createApplication")
+            clangformatFiles("client")
+            clangformatFiles("server")
+            clangformatFiles("libserver")
         end
     end)
 
@@ -77,25 +85,47 @@ task("vs_project")
 
 task("android_run")
     on_run(function () 
+        import("core.base.option")
         import("utils.archive")
         import("lib.detect.find_program")
         import("net.http")
         import("devel.git")
         import("utils.archive")
-        local architecture = "armeabi-v7a"
-        -- local architecture = "arm64-v8a"
+        local executable = "h264_decode_android_example"
+        if option.get("server") then
+            executable = "server"
+        end
+        if option.get("client") then
+            executable = "client"
+        end
+        local remote = "/data/local/tmp/test"
+        local architecture = option.get("architecture") -- armeabi-v7a  arm64-v8a  x86_64   x86
+        if architecture == nil then 
+            architecture = "armeabi-v7a"
+        end
         os.execv(find_program("xmake"), {"f", "-p", "android", "--ndk=" .. ndk_path, "-a", architecture, "-m", "debug"})
-        os.execv(find_program("xmake"), {"build", "h264_decode_android_example"})
-        os.execv(find_program("adb"), {"push", "./build/android/" .. architecture .. "/debug/h264_decode_android_example", "/data/local/tmp/test"})
-        os.execv(find_program("adb"), {"shell", "chmod", "+x", "/data/local/tmp/test/h264_decode_android_example"})
-        os.execv(find_program("adb"), {"shell", "cd", "/data/local/tmp/test", ";", "./h264_decode_android_example"})
+        os.execv(find_program("xmake"), {"build", "-v", executable})
+        os.execv(find_program("adb"), {"push", "./build/android/" .. architecture .. "/debug/" .. executable, remote})
+        os.execv(find_program("adb"), {"shell", "chmod", "+x", remote .. "/" .. executable})
+        os.execv(find_program("adb"), {"shell", "cd", remote, ";", "./" .. executable})
     end)
 
     set_menu {
         usage = "xmake android_run",
         options = {
+            {nil, "server", "k",  nil, nil },
+            {nil, "client", "k",  nil, nil },
+            {"a", "architecture", "kv",  nil, nil }
         }
     }    
+
+target("libyuv")
+    local kind = "static"
+    set_kind(kind)
+    set_languages("cxx11", "c11")
+    add_files(libyuvRoot .. "/source/*.cc")
+    add_headerfiles(libyuvRoot .. "/include/**.h")
+    add_includedirs(libyuvRoot .. "/include", { public = true })
 
 target("log_c")
     local kind = "static"
@@ -216,7 +246,6 @@ target("h264_decode_android_example")
     add_deps("h264_parse")
     add_deps("h264_android_codec")
     add_deps("util")
-    add_packages("libhv")
     add_includedirs("h264_decode_android_example")
     set_languages("c11")
     add_rules("mode.debug", "mode.release")
@@ -240,3 +269,50 @@ target("createApplication")
     if is_plat("windows") then 
         add_ldflags("-subsystem:console")
     end
+
+target("client")
+    set_kind("binary")
+    add_rules("mode.debug", "mode.release")
+    set_languages("c11")
+    add_files("client/*.c")
+    add_packages("libhv")
+    add_deps("log_c")
+    add_deps("util")
+
+target("server")
+    set_kind("binary")
+    add_rules("mode.debug", "mode.release")
+    set_languages("c11")
+    add_files("server/*.c")
+    add_packages("libhv")
+    add_deps("h264_android_codec")
+    add_deps("libserver")
+    add_links("mediandk")
+
+target("libserver")
+    local kind = "static"  
+    set_basename("server") 
+    set_kind(kind)
+    add_rules("mode.debug", "mode.release")
+    set_languages("c11")
+    add_files("libserver/src/*.c")
+    add_includedirs("libserver/include/public", { public = true })
+    add_packages("libhv")
+    add_deps("log_c")
+    add_deps("util")
+    add_deps("h264_android_codec")
+    add_deps("libyuv")
+    add_links("mediandk")
+    after_build(function (target) 
+        local root = path.join(target:targetdir(), "libserver")
+        local include = path.join(root, "include/libserver")
+        local lib = path.join(root, "lib/")
+        os.mkdir(root)
+        os.mkdir(include)
+        os.mkdir(lib)      
+        os.cp("libserver/include/public/libserver/*.h", include)
+        os.cp(target:targetfile(), lib)
+        if is_plat("windows") == true and target:kind() == "shared" then
+            os.cp(path.join(target:targetdir(), target:basename()) .. ".lib", lib)
+        end
+    end)

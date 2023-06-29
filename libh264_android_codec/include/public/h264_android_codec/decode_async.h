@@ -9,12 +9,12 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 
-#include "h264_android_codec_define.h"
-#include "h264_android_codec/h264_android_codec.h"
-#include "h264_parse/h264_parser.h"
-#include "util/util.h"
 #include "log.h"
+#include "util/util.h"
 #include "util/util_buffer_block.h"
+#include "h264_android_codec_define.h"
+#include "h264_android_codec.h"
+#include "h264_parse/h264_parser.h"
 // clang-format on
 
 #ifdef __cplusplus

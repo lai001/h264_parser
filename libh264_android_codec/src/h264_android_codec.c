@@ -7,6 +7,8 @@
 #include "log.h"
 // clang-format on
 
+static const char* TAG = "[H264AndroidCodec]";
+
 char *H264AndroidCodec_getColorFormatName(unsigned int code, char *name)
 {
     if (name)
@@ -101,7 +103,7 @@ int H264AndroidCodec_getOutputBuffer(H264AndroidCodec *androidCodec, char **buff
         AMediaCodecBufferInfo mediaCodecBufferInfo;
         outputBufferIndex = AMediaCodec_dequeueOutputBuffer(androidCodec->mediaCodec, &mediaCodecBufferInfo, 2000);
 
-        log_trace("outputBufferIndex : %d", outputBufferIndex);
+        log_trace("%s outputBufferIndex : %d", TAG, outputBufferIndex);
 
         if (outputBufferIndex >= 0)
         {
@@ -118,7 +120,7 @@ int H264AndroidCodec_getOutputBuffer(H264AndroidCodec *androidCodec, char **buff
 
             *buffer = AMediaCodec_getOutputBuffer(androidCodec->mediaCodec, outputBufferIndex, outputBufferSize);
             char colorFormatName[256];
-            log_trace("framebufferSize: %d, color format name: %s", framebufferSize,
+            log_trace("%s framebufferSize: %d, color format name: %s", TAG, framebufferSize,
                       H264AndroidCodec_getColorFormatName(colorFormat, colorFormatName));
 
             AMediaCodec_releaseOutputBuffer(androidCodec->mediaCodec, outputBufferIndex, false);
@@ -134,19 +136,19 @@ int H264AndroidCodec_getOutputBuffer(H264AndroidCodec *androidCodec, char **buff
 
             AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, &colorFormat);
 
-            log_trace("AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED");
+            log_trace("%s AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED", TAG);
         }
         else if (outputBufferIndex == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED)
         {
-            log_trace("AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED");
+            log_trace("%s AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED", TAG);
         }
         else if (outputBufferIndex == AMEDIACODEC_INFO_TRY_AGAIN_LATER)
         {
-            log_trace("AMEDIACODEC_INFO_TRY_AGAIN_LATER");
+            log_trace("%s AMEDIACODEC_INFO_TRY_AGAIN_LATER", TAG);
         }
         else
         {
-            log_trace("Unknow");
+            log_trace("%s Unknow", TAG);
         }
     } while (outputBufferIndex > 0);
 
@@ -167,7 +169,7 @@ int H264AndroidCodec_queueInputBuffer(H264AndroidCodec *androidCodec, char *buff
             (char *)AMediaCodec_getInputBuffer(androidCodec->mediaCodec, inputBufferIndex, &intputBufferSize);
         if (mediaCodecGetInputBuffer && intputBufferSize > 0)
         {
-            log_trace("inputBufferIndex: %d, intputBufferSize: %d", inputBufferIndex, intputBufferSize);
+            log_trace("%s inputBufferIndex: %d, intputBufferSize: %d", TAG, inputBufferIndex, intputBufferSize);
             memcpy(mediaCodecGetInputBuffer, buffer, min(bufferSize, intputBufferSize));
             AMediaCodec_queueInputBuffer(androidCodec->mediaCodec, inputBufferIndex, 0,
                                          min(bufferSize, intputBufferSize), 0, 0);

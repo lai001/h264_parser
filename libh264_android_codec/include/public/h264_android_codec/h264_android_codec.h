@@ -2,7 +2,7 @@
 #define H264_ANDROID_CODEC_H
 
 // clang-format off
-#include "h264_android_codec/h264_android_codec_define.h"
+#include "h264_android_codec_define.h"
 #include <media/NdkMediaCodec.h>
 // clang-format on
 

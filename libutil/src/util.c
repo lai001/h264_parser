@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 
 int Util_isLittleEndian()
 {
@@ -50,7 +51,7 @@ int Util_saveBufferToFile(const char *buffer, const unsigned int bufferSize, con
     return 0;
 }
 
-Util_API char *Util_readBufferFromFile(char *filePath, long *outFileSize)
+char *Util_readBufferFromFile(char *filePath, long *outFileSize)
 {
     FILE *frameFile = fopen(filePath, "rb");
     // log_trace("filePath: %s", filePath);
@@ -66,4 +67,24 @@ Util_API char *Util_readBufferFromFile(char *filePath, long *outFileSize)
         *outFileSize = fileSize;
     }
     return fileBuffer;
+}
+
+/**
+ * https://github.com/qemu/qemu/blob/2e3408b3cc7de4e87a9adafc8c19bfce3abec947/util/oslib-posix.c#L105
+ */
+int Util_getCurrentThreadID()
+{
+#if defined(__linux__)
+    return syscall(SYS_gettid);
+#elif defined(__FreeBSD__)
+    long tid;
+    thr_self(&tid);
+    return (int)tid;
+#elif defined(__NetBSD__)
+    return _lwp_self();
+#elif defined(__OpenBSD__)
+    return getthrid();
+#else
+    return getpid();
+#endif
 }
